@@ -313,6 +313,7 @@ cit_grid_result <- tune_sim_anneal(
   param_info = cit_param,
   iter = 50 
 ) # in research is recommended a 100 for time thing is 50 in the class
+
 cit_grid_result$.metrics[[2]]
 ```
 Notice how we have a column for iterations.  
@@ -358,11 +359,14 @@ cit_grid_result %>%
 
 ```
 
-> Previously, we selected the single best model. Now, let's select the best model within one std error of the metric, so we choose a model among the top ones that is more parsimonious.  
+> Previously, we selected the single best model. Now, let's select the best model within one std error of the metric, so we choose a model among the top ones that is more parsimonious. (to get a simple model which not lose predictive power)
 
 ```{r}
 # Based on lowest RMSE
-best_rmse <- cit_grid_result 
+best_rmse <- cit_grid_result %>%
+  select_by_one_std_err("tree_depth",
+                        metric = "rmse"
+                        )
 
 best_rmse
 
@@ -370,18 +374,21 @@ best_rmse
 
 ```{r}
 # Based on greatest R2
-best_r2 <- cit_grid_result 
+best_r2 <- cit_grid_result %>%
+  select_by_one_std_err("tree_depth",
+                        metric = "rsq"
+                        )
 
 best_r2
 
 ```
 Based on RMSE, we would choose   
-  - tree_depth = 10   
-  - conditional_min_criterion = 0.9926512
+  - tree_depth = 9  
+  - conditional_min_criterion = 0.999954
 
 Based on R2, we would choose   
-  - tree_depth = 10
-  - conditional_min_criterion = 0.9926512
+  - tree_depth = 9
+  - conditional_min_criterion = 0.999954
 
 Let's use the hyperparameter values that optimized R2 to fit our final model.
 
@@ -447,6 +454,7 @@ final_spec %>%
 
 ```
 How does metrics on test compare to metrics on train?  
+It makes sense because our model will predict better in the data you trained. 
 
 Predicted vs. observed plot:  
 ```{r}
@@ -461,6 +469,7 @@ final_fit %>%
   scale_y_continuous(limits = c(20, 40)) 
 ```
 Why the 4 horizontal lines?  
+Becuase is a tree (split data)
 
 How can we get more horizontal lines in this type of algorithm?  
 
@@ -468,7 +477,7 @@ Variable importance:
 ```{r}
 final_spec %>%
   fit(strength_gtex ~ .,
-         data = bake(weather_prep, weather)) %>%
+         data = bake(weather_prep, weather_train)) %>%
     vi() %>%
   mutate(
     Variable = fct_reorder(Variable, 
@@ -481,10 +490,17 @@ final_spec %>%
   labs(y = NULL)
     
 ```
+Two only variables showed up. Anything else does not have any variable of importance because they were the only ones who enter into the model
+
 Tree:  
 
 ```{r}
-
+final_spec %>%
+  fit(strength_gtex ~ .,
+      data = bake(weather_prep, weather_train)
+      ) %>%
+  .$fit %>%
+  plot()
   
 ```
 
